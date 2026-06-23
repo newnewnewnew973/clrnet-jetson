@@ -265,6 +265,16 @@ GitHub에 포함하면 안 되는 항목:
 
 현재 `.gitignore`는 위 항목을 제외하도록 설정되어 있습니다.
 
+## 개발 참고
+
+일부 코드 구조 정리와 문서 작성 과정에서 OpenAI Codex를 활용했습니다.
+다만 최종 실행 경로, CUDA NMS 빌드, 단일 이미지 추론, 전체 CULane prediction 생성,
+F1 계산은 Jetson Orin Nano 환경에서 직접 검증했습니다.
+
+이 프로젝트의 핵심 작업은 공식 CLRNet 코드를 직접 수정하지 않고, Jetson/PyTorch 2.x
+환경에서 동작하도록 외부 CUDA NMS, 최소 dependency shim, 추론/평가 runner를 구성한
+것입니다.
+
 ## 포함하지 않는 파일 준비 방법
 
 이 저장소는 용량, 라이선스, 실행 환경 차이 때문에 데이터셋, checkpoint,
