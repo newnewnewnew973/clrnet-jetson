@@ -268,8 +268,7 @@ GitHub에 포함하면 안 되는 항목:
 ## 개발 참고
 
 일부 코드 구조 정리와 문서 작성 과정에서 OpenAI Codex를 활용했습니다.
-다만 최종 실행 경로, CUDA NMS 빌드, 단일 이미지 추론, 전체 CULane prediction 생성,
-F1 계산은 Jetson Orin Nano 환경에서 직접 검증했습니다.
+다만 Jetson Orin Nano 환경에서 직접 검증하고 확인했습니다.
 
 이 프로젝트의 핵심 작업은 공식 CLRNet 코드를 직접 수정하지 않고, Jetson/PyTorch 2.x
 환경에서 동작하도록 외부 CUDA NMS, 최소 dependency shim, 추론/평가 runner를 구성한
