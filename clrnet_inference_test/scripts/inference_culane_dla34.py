@@ -1,28 +1,24 @@
 import argparse
-import sys
 from pathlib import Path
 
 import cv2
 import numpy as np
 import torch
 
-if "bool" not in np.__dict__:
-    np.bool = bool
+from runtime import (
+    OFFICIAL_CLRNET_ROOT,
+    PROJECT_ROOT,
+    configure_import_paths,
+    default_device_arg,
+    ensure_numpy_bool_alias,
+    load_checkpoint_for_inference,
+    nms_build_message,
+    resolve_device,
+)
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-LOCAL_PROJECT_ROOT = PROJECT_ROOT / "clrnet_inference_test"
-OFFICIAL_CLRNET_ROOT = PROJECT_ROOT / "clrnet"
-EXPECTED_MISSING_KEYS = {
-    "heads.criterion.weight",
-    "heads.prior_feat_ys",
-    "heads.prior_ys",
-    "heads.sample_x_indexs",
-}
-if str(OFFICIAL_CLRNET_ROOT) not in sys.path:
-    sys.path.insert(0, str(OFFICIAL_CLRNET_ROOT))
-if str(LOCAL_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(LOCAL_PROJECT_ROOT))
+ensure_numpy_bool_alias()
+configure_import_paths()
 
 try:
     import clrnet.models  # noqa: F401,E402 - registers official model modules
@@ -30,52 +26,8 @@ try:
     from clrnet.utils.config import Config  # noqa: E402
 except ImportError as exc:
     if "nms_impl" in str(exc):
-        raise SystemExit(
-            "External CLRNet CUDA NMS extension is not built.\n"
-            "Build it first:\n"
-            "  cd /home/newnew/workspace/clrnet_inference_test/extensions/nms\n"
-            "  python setup.py build_ext --inplace\n"
-        ) from exc
+        raise SystemExit(nms_build_message(include_arch=False)) from exc
     raise
-
-
-def load_checkpoint_for_inference(model, checkpoint_path: Path):
-    checkpoint = torch.load(str(checkpoint_path), map_location="cpu")
-    state = checkpoint["net"] if isinstance(checkpoint, dict) and "net" in checkpoint else checkpoint
-    state = {
-        key.replace("module.", "", 1) if key.startswith("module.") else key: value
-        for key, value in state.items()
-    }
-    incompatible = model.load_state_dict(state, strict=False)
-    loaded = len(set(model.state_dict().keys()) & set(state.keys()))
-    print(f"checkpoint_loaded_keys={loaded}/{len(model.state_dict())}")
-    if incompatible.missing_keys:
-        print(f"checkpoint_missing_keys={len(incompatible.missing_keys)}")
-        for key in incompatible.missing_keys:
-            print(f"  missing: {key}")
-    if incompatible.unexpected_keys:
-        print(f"checkpoint_unexpected_keys={len(incompatible.unexpected_keys)}")
-        for key in incompatible.unexpected_keys:
-            print(f"  unexpected: {key}")
-
-    unsafe_missing = set(incompatible.missing_keys) - EXPECTED_MISSING_KEYS
-    if unsafe_missing or incompatible.unexpected_keys:
-        raise RuntimeError(
-            "Checkpoint does not match this CLRNet model. "
-            f"unsafe_missing={sorted(unsafe_missing)}, "
-            f"unexpected={list(incompatible.unexpected_keys)}"
-        )
-    return incompatible
-
-
-def resolve_device(device_arg: str) -> torch.device:
-    device = torch.device(device_arg)
-    if device.type == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError(
-            "CUDA was requested but torch.cuda.is_available() is False. "
-            "Check Jetson GPU access, CUDA/PyTorch install, and sandbox/device permissions."
-        )
-    return device
 
 
 def parse_args():
@@ -102,7 +54,7 @@ def parse_args():
         default=str(PROJECT_ROOT / "clrnet_inference_test/outputs/single_image"),
         help="Directory for visualization and CULane text output.",
     )
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--device", default=None)
     parser.add_argument("--conf-threshold", type=float, default=None)
     parser.add_argument("--nms-thres", type=float, default=None)
     return parser.parse_args()
@@ -130,6 +82,7 @@ def find_first_image(data_root: Path) -> Path:
 def preprocess_bgr(image: np.ndarray, cfg) -> torch.Tensor:
     image = image[cfg.cut_height :, :, :]
     image = cv2.resize(image, (cfg.img_w, cfg.img_h), interpolation=cv2.INTER_CUBIC)
+    # Official CULane val process ends GenerateLaneLine with float32 / 255.0.
     image = image.astype(np.float32) / 255.0
     image = torch.from_numpy(image).permute(2, 0, 1).unsqueeze(0)
     return image.contiguous()
@@ -158,6 +111,8 @@ def draw_lanes(image: np.ndarray, lanes, cfg) -> np.ndarray:
 
 def main():
     args = parse_args()
+    if args.device is None:
+        args.device = default_device_arg()
     cfg = Config.fromfile(args.config)
     cfg.backbone.pretrained = False
     if args.conf_threshold is not None:

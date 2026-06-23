@@ -1,24 +1,14 @@
 import argparse
 import json
 import multiprocessing as mp
-import sys
 import time
 from pathlib import Path
 
-import numpy as np
-
-if "bool" not in np.__dict__:
-    np.bool = bool
+from runtime import PROJECT_ROOT, configure_import_paths, ensure_numpy_bool_alias
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-LOCAL_PROJECT_ROOT = PROJECT_ROOT / "clrnet_inference_test"
-OFFICIAL_CLRNET_ROOT = PROJECT_ROOT / "clrnet"
-
-if str(OFFICIAL_CLRNET_ROOT) not in sys.path:
-    sys.path.insert(0, str(OFFICIAL_CLRNET_ROOT))
-if str(LOCAL_PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(LOCAL_PROJECT_ROOT))
+ensure_numpy_bool_alias()
+configure_import_paths()
 
 from clrnet.utils.culane_metric import culane_metric, load_culane_data  # noqa: E402
 
