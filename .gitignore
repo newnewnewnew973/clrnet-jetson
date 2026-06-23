@@ -2,6 +2,7 @@
 /clrnet/
 
 # Local caches and agent/tooling state.
+/.git_repo/
 /cache/
 /.codex/
 /.agents/
