@@ -1,0 +1,38 @@
+# Official upstream source tree. Keep it outside this project commit.
+/clrnet/
+
+# Local caches and agent/tooling state.
+/cache/
+/.codex/
+/.agents/
+__pycache__/
+*.py[cod]
+
+# Large or machine-local runtime data.
+/data/*
+/weights/*
+/clrnet_inference_test/data/*
+/clrnet_inference_test/assets/images/*
+!/clrnet_inference_test/assets/images/.gitkeep
+
+# Model and TensorRT artifacts.
+*.pth
+*.pt
+*.onnx
+*.engine
+*.trt
+*.plan
+*.zip
+
+# Generated outputs. Keep the directory structure in the project, not results.
+/clrnet_inference_test/outputs/**
+!/clrnet_inference_test/outputs/
+!/clrnet_inference_test/outputs/**/
+!/clrnet_inference_test/outputs/.gitkeep
+!/clrnet_inference_test/outputs/**/.gitkeep
+
+# Native extension build products.
+/clrnet_inference_test/extensions/nms/build/
+/clrnet_inference_test/extensions/nms/*.so
+*.egg-info/
+.ninja_*
