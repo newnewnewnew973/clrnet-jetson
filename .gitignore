@@ -6,6 +6,7 @@
 /cache/
 /.codex/
 /.agents/
+/.pytest_cache/
 __pycache__/
 *.py[cod]
 
@@ -33,7 +34,7 @@ __pycache__/
 !/clrnet_inference_test/outputs/**/.gitkeep
 
 # Native extension build products.
-/clrnet_inference_test/extensions/nms/build/
-/clrnet_inference_test/extensions/nms/*.so
+/clrnet_common/extensions/nms/build/
+/clrnet_common/extensions/nms/*.so
 *.egg-info/
 .ninja_*

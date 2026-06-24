@@ -22,8 +22,13 @@ def parse_args():
     )
     parser.add_argument(
         "--pred-dir",
-        default=str(PROJECT_ROOT / "clrnet_inference_test/outputs/eval/dla34_official"),
+        default=None,
         help="Directory containing generated CULane *.lines.txt prediction files.",
+    )
+    parser.add_argument(
+        "--model",
+        default="dla34",
+        help="Name used for default prediction/result paths.",
     )
     parser.add_argument(
         "--data-root",
@@ -37,7 +42,7 @@ def parse_args():
     )
     parser.add_argument(
         "--output-json",
-        default=str(PROJECT_ROOT / "clrnet_inference_test/outputs/eval/dla34_official_metric_0_5.json"),
+        default=None,
         help="JSON file for final and intermediate metric results.",
     )
     parser.add_argument("--iou-threshold", type=float, default=0.5)
@@ -46,8 +51,8 @@ def parse_args():
     return parser.parse_args()
 
 
-def calc_one(args):
-    pred, anno, threshold = args
+def calc_one(job):
+    pred, anno, threshold = job
     result = culane_metric(
         pred,
         anno,
@@ -75,8 +80,22 @@ def make_payload(processed, total, tp, fp, fn, elapsed_sec):
     }
 
 
+def threshold_suffix(value: float) -> str:
+    return str(value).replace(".", "_")
+
+
 def main():
     args = parse_args()
+    if args.pred_dir is None:
+        args.pred_dir = str(
+            PROJECT_ROOT / f"clrnet_inference_test/outputs/eval/{args.model}_official"
+        )
+    if args.output_json is None:
+        suffix = threshold_suffix(args.iou_threshold)
+        args.output_json = str(
+            PROJECT_ROOT
+            / f"clrnet_inference_test/outputs/eval/{args.model}_official_metric_{suffix}.json"
+        )
     pred_dir = Path(args.pred_dir)
     data_root = Path(args.data_root)
     list_path = Path(args.list_path) if args.list_path else data_root / "list/test.txt"
@@ -93,6 +112,7 @@ def main():
 
     output_json.parent.mkdir(parents=True, exist_ok=True)
 
+    print(f"model={args.model}", flush=True)
     print(f"pred_dir={pred_dir}", flush=True)
     print(f"data_root={data_root}", flush=True)
     print(f"list_path={list_path}", flush=True)
@@ -114,7 +134,7 @@ def main():
 
     total = len(predictions)
     tp = fp = fn = 0
-    start = time.time()
+    start = time.perf_counter()
     jobs = ((pred, anno, args.iou_threshold) for pred, anno in zip(predictions, annotations))
 
     print("metric_start", flush=True)
@@ -124,7 +144,7 @@ def main():
             fp += values[1]
             fn += values[2]
             if idx % args.progress_interval == 0 or idx == total:
-                payload = make_payload(idx, total, tp, fp, fn, time.time() - start)
+                payload = make_payload(idx, total, tp, fp, fn, time.perf_counter() - start)
                 output_json.write_text(json.dumps(payload, indent=2), encoding="utf-8")
                 print(json.dumps(payload), flush=True)
 

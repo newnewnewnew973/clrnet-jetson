@@ -6,13 +6,13 @@ import numpy as np
 import torch
 
 from runtime import (
-    OFFICIAL_CLRNET_ROOT,
     PROJECT_ROOT,
     configure_import_paths,
     default_device_arg,
     ensure_numpy_bool_alias,
     load_checkpoint_for_inference,
     nms_build_message,
+    resolve_culane_model_args,
     resolve_device,
 )
 
@@ -32,22 +32,27 @@ except ImportError as exc:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Run official CLRNet DLA34 CULane checkpoint on one image."
+        description="Run an official CLRNet CULane checkpoint on one image."
+    )
+    parser.add_argument(
+        "--model",
+        default="dla34",
+        help="Model preset name. Defaults to dla34 and maps to clr_<model>_culane.py.",
     )
     parser.add_argument(
         "--config",
-        default=str(OFFICIAL_CLRNET_ROOT / "configs/clrnet/clr_dla34_culane.py"),
-        help="Official CLRNet CULane DLA34 config path.",
+        default=None,
+        help="Override official CLRNet config path.",
     )
     parser.add_argument(
         "--checkpoint",
-        default=str(PROJECT_ROOT / "weights/culane_dla34.pth"),
-        help="Trained CLRNet DLA34 checkpoint.",
+        default=None,
+        help="Override trained CLRNet checkpoint path.",
     )
     parser.add_argument(
         "--image",
         default=None,
-        help="CULane test image. If omitted, the script searches under workspace/data.",
+        help="CULane test image. If omitted, the script searches under data/.",
     )
     parser.add_argument(
         "--output-dir",
@@ -75,7 +80,7 @@ def find_first_image(data_root: Path) -> Path:
                 if path.is_file():
                     return path
     raise FileNotFoundError(
-        "No image found. Pass --image /path/to/culane/test.jpg or extract/link CULane under workspace/data."
+        "No image found. Pass --image /path/to/culane/test.jpg or extract/link CULane under data/."
     )
 
 
@@ -113,6 +118,11 @@ def main():
     args = parse_args()
     if args.device is None:
         args.device = default_device_arg()
+    model_name, args.config, args.checkpoint = resolve_culane_model_args(
+        args.model,
+        args.config,
+        args.checkpoint,
+    )
     cfg = Config.fromfile(args.config)
     cfg.backbone.pretrained = False
     if args.conf_threshold is not None:
@@ -137,12 +147,12 @@ def main():
     model.eval()
 
     tensor = preprocess_bgr(image, cfg).to(device)
-    with torch.no_grad():
+    with torch.inference_mode():
         output = model(tensor)
         lanes = model.heads.get_lanes(output)[0]
 
     stem = image_path.stem
-    vis_path = output_dir / f"{stem}_clrnet_dla34.jpg"
+    vis_path = output_dir / f"{stem}_clrnet_{model_name}.jpg"
     txt_path = output_dir / f"{stem}.lines.txt"
 
     vis = draw_lanes(image, lanes, cfg)
@@ -154,6 +164,7 @@ def main():
 
     print(f"image={image_path}")
     print(f"checkpoint={checkpoint}")
+    print(f"model_name={model_name}")
     print(f"device={device}")
     print(f"lanes={len(lanes)}")
     print(f"visualization={vis_path}")

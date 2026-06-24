@@ -7,6 +7,10 @@ usage. Other MMCV ConvModule features intentionally raise NotImplementedError.
 import torch.nn as nn
 
 
+DEFAULT_ACT_CFG = {"type": "ReLU"}
+_DEFAULT_ACT_CFG_SENTINEL = object()
+
+
 class ConvModule(nn.Module):
     """Conv-Norm-Activation block for the CLRNet configs used in this project."""
 
@@ -22,11 +26,13 @@ class ConvModule(nn.Module):
         bias="auto",
         conv_cfg=None,
         norm_cfg=None,
-        act_cfg=dict(type="ReLU"),
+        act_cfg=_DEFAULT_ACT_CFG_SENTINEL,
         inplace=True,
         **kwargs,
     ):
         super().__init__()
+        if act_cfg is _DEFAULT_ACT_CFG_SENTINEL:
+            act_cfg = DEFAULT_ACT_CFG
         if conv_cfg is not None:
             raise NotImplementedError("Only default Conv2d is supported")
 

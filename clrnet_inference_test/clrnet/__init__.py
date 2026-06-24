@@ -12,7 +12,7 @@ Import behavior:
 
 Result:
 - ``clrnet.ops.nms`` is loaded from this project, so it can use the external
-  CUDA NMS extension under ``clrnet_inference_test/extensions/nms``.
+  CUDA NMS extension under ``clrnet_common/extensions/nms``.
 - ``clrnet.models``, ``clrnet.utils``, and other unchanged modules are loaded
   from the official CLRNet source tree.
 
