@@ -83,11 +83,13 @@ clone 직후 다음 구조를 맞춥니다.
 ```text
 .
 ├── clrnet/                         # official CLRNet source
+├── clrnet_common/                  # shared runtime, latency, and CUDA NMS extension
 ├── clrnet_inference_test/           # this project
 ├── data/CULane/                     # CULane dataset
 └── weights/culane_dla34.pth         # DLA34 checkpoint
 ```
 
+`clrnet_common/`과 `clrnet_inference_test/`는 이 repository에 포함합니다.
 `clrnet/`, `data/`, `weights/`는 git에 포함하지 않습니다.
 
 ## Setup

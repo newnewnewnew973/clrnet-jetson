@@ -29,6 +29,7 @@ cd clrnet-jetson
 ```text
 .
 ├── clrnet/                         # 공식 CLRNet upstream checkout, git에는 포함하지 않음
+├── clrnet_common/                  # 공통 runtime, latency helper, CUDA NMS extension
 ├── clrnet_inference_test/           # 이 래퍼 프로젝트
 ├── data/CULane/                     # CULane dataset, git에는 포함하지 않음
 └── weights/culane_dla34.pth         # DLA34 checkpoint, git에는 포함하지 않음
