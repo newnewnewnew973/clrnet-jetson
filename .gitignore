@@ -38,6 +38,11 @@ __pycache__/
 !/clrnet_tensorrt/outputs/**/
 !/clrnet_tensorrt/outputs/.gitkeep
 !/clrnet_tensorrt/outputs/**/.gitkeep
+/clrnet_deepstream/outputs/**
+!/clrnet_deepstream/outputs/
+!/clrnet_deepstream/outputs/**/
+!/clrnet_deepstream/outputs/.gitkeep
+!/clrnet_deepstream/outputs/**/.gitkeep
 
 # Native extension build products.
 /clrnet_common/extensions/nms/build/
