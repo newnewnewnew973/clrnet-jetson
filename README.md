@@ -1,7 +1,7 @@
 # CLRNet Workspace
 
 This workspace keeps the upstream CLRNet checkout read-only and adds local
-PyTorch inference and TensorRT runtime packages around it.
+PyTorch inference, TensorRT, and DeepStream deployment packages around it.
 
 ## Structure
 
@@ -10,6 +10,8 @@ PyTorch inference and TensorRT runtime packages around it.
 - `clrnet_inference/`: PyTorch inference, evaluation, metric, latency, and tests.
 - `clrnet_tensorrt/`: ONNX export, TensorRT engine build, inference, evaluation,
   metric, and latency.
+- `clrnet_deepstream/`: Jetson DeepStream deployment pipeline with hardware
+  decode, TensorRT `nvinfer`, lane overlay, and full-frame video output.
 
 The important design decision is that backend-specific scripts stay in their
 own package, while duplicated behavior lives in `clrnet_common/`. The upstream
@@ -60,7 +62,34 @@ python clrnet_tensorrt/scripts/measure_culane_metric.py --model dla34 --pred-dir
 python clrnet_tensorrt/scripts/measure_tensorrt_latency.py --model dla34 --data-root clrnet_inference/data/CULane --precision fp16 --fp16-engine clrnet_tensorrt/outputs/engine/clrnet_dla34_fp16.engine --device cuda --limit 1000 --warmup 100 --block-warmup 10
 ```
 
-More details are in `clrnet_inference/README.md` and `clrnet_tensorrt/README.md`.
+DeepStream:
+
+```bash
+sudo docker build -t clrnet-deepstream:7.1 -f clrnet_deepstream/docker/Dockerfile .
+
+cp clrnet_tensorrt/outputs/onnx/clrnet_dla34.onnx \
+  clrnet_deepstream/outputs/clrnet_dla34.onnx
+
+python clrnet_deepstream/scripts/prepare_video_example.py \
+  --overwrite \
+  --codec h264 \
+  --output clrnet_deepstream/outputs/video_example_full.h264
+
+sudo docker run --rm --runtime=nvidia --network=host --privileged \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics \
+  -v /home/newnew/workspace:/workspace \
+  -w /workspace \
+  clrnet-deepstream:7.1 \
+  python3 clrnet_deepstream/scripts/run_lane_overlay.py \
+    --compose-full-frame \
+    --decoder hardware \
+    --input clrnet_deepstream/outputs/video_example_full.h264 \
+    --output clrnet_deepstream/outputs/deepstream_lanes_full_compositor.mp4 \
+    --nvinfer-config clrnet_deepstream/configs/nvinfer_clrnet.txt
+```
+
+More details are in `clrnet_inference/README.md`,
+`clrnet_tensorrt/README.md`, and `clrnet_deepstream/README.md`.
 
 ## Latest Verification
 
@@ -80,6 +109,16 @@ Latency summary:
 | PyTorch DLA34 | 1,000 | 12.72 | 31.39 |
 | TensorRT DLA34 FP16 | 1,000 | 14.84 | 128.67 |
 
+DeepStream deployment verification:
+
+| Runtime | Input | Output | Frames | Notes |
+| --- | --- | --- | ---: | --- |
+| DeepStream 7.1 + TensorRT FP16 | H.264 file | full-frame MP4 | 5,400 | `nvv4l2decoder`, `nvinfer`, `nvdsosd`, `nvcompositor` |
+
+The DeepStream output keeps the original 1640x590 frame. The model branch uses
+the same CULane crop as CLRNet inference, then the overlay branch is composited
+back onto the original frame inside DeepStream.
+
 Generated artifacts:
 
 ```text
@@ -91,12 +130,14 @@ clrnet_tensorrt/outputs/engine/clrnet_dla34_fp16.engine
 clrnet_tensorrt/outputs/eval/dla34_fp16_full/
 clrnet_tensorrt/outputs/eval/dla34_fp16_full_metric_0_5.json
 clrnet_tensorrt/outputs/latency/tensorrt_dla34_1000/
+clrnet_deepstream/outputs/video_example_full.h264
+clrnet_deepstream/outputs/deepstream_lanes_full_compositor.mp4
 ```
 
 ## Tests
 
 ```bash
-python -m compileall -q clrnet_common clrnet_inference clrnet_tensorrt
+python -m compileall -q clrnet_common clrnet_inference clrnet_tensorrt clrnet_deepstream/scripts
 python -m pytest clrnet_inference/tests
 ```
 
