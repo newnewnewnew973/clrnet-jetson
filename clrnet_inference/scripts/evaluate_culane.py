@@ -1,5 +1,5 @@
 import argparse
-from datetime import datetime
+import importlib
 from pathlib import Path
 
 import torch
@@ -15,20 +15,22 @@ from runtime import (
     resolve_culane_model_args,
     resolve_device,
 )
+from clrnet_common.culane import (
+    build_culane_dataset,
+    resolve_eval_output_dir,
+    write_culane_prediction,
+)
 
 
 ensure_numpy_bool_alias()
 configure_import_paths()
 
-# Importing these packages registers official CLRNet datasets, transforms, and
-# model classes in their registries. The local proxy only replaces Jetson-specific
-# modules such as CUDA NMS.
 try:
-    import clrnet.datasets  # noqa: F401,E402 - registers official datasets/processes
-    import clrnet.models  # noqa: F401,E402 - registers official model modules
-    from clrnet.datasets.registry import build_dataset  # noqa: E402
-    from clrnet.models.registry import build_net  # noqa: E402
-    from clrnet.utils.config import Config  # noqa: E402
+    importlib.import_module("clrnet.datasets")
+    importlib.import_module("clrnet.models")
+    from clrnet.datasets.registry import build_dataset
+    from clrnet.models.registry import build_net
+    from clrnet.utils.config import Config
 except ImportError as exc:
     if "nms_impl" in str(exc):
         raise SystemExit(nms_build_message()) from exc
@@ -56,7 +58,7 @@ def parse_args():
     )
     parser.add_argument(
         "--data-root",
-        default=str(PROJECT_ROOT / "clrnet_inference_test/data/CULane"),
+        default=str(PROJECT_ROOT / "clrnet_inference/data/CULane"),
     )
     parser.add_argument(
         "--output-dir",
@@ -70,6 +72,12 @@ def parse_args():
         help="Number of CULane samples per forward pass. Use 1 for baseline parity.",
     )
     parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Optional sample limit for quick smoke tests. Omit for full CULane eval.",
+    )
+    parser.add_argument(
         "--run-official-evaluate",
         action="store_true",
         help=(
@@ -78,30 +86,6 @@ def parse_args():
         ),
     )
     return parser.parse_args()
-
-
-def build_culane_dataset(cfg, data_root: Path):
-    """Build the official CULane test dataset with the repo-local data root."""
-    cfg.dataset.test.data_root = str(data_root)
-    dataset = build_dataset(cfg.dataset.test, cfg)
-    return dataset
-
-
-def resolve_output_dir(model_name: str, output_dir: str | None) -> Path:
-    """Use an explicit output dir as-is, otherwise isolate runs by timestamp."""
-    if output_dir:
-        return Path(output_dir)
-    run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return PROJECT_ROOT / f"clrnet_inference_test/outputs/eval/{model_name}_{run_id}"
-
-
-def write_culane_prediction(dataset, idx: int, pred, output_dir: Path) -> None:
-    """Write one prediction using the same relative path layout as CULane."""
-    relative_img = Path(dataset.data_infos[idx]["img_name"])
-    pred_dir = output_dir / relative_img.parent
-    pred_dir.mkdir(parents=True, exist_ok=True)
-    pred_file = pred_dir / f"{relative_img.stem}.lines.txt"
-    pred_file.write_text(dataset.get_prediction_string(pred), encoding="utf-8")
 
 
 def iter_batches(total: int, batch_size: int):
@@ -116,11 +100,8 @@ def main():
         args.device = default_device_arg()
     if args.batch_size < 1:
         raise ValueError("--batch-size must be >= 1")
-    if args.batch_size > 1:
-        print(
-            "batch_size_warning=batched inference may produce small floating-point "
-            "differences from the batch-size 1 baseline"
-        )
+    if args.limit is not None and args.limit < 1:
+        raise ValueError("--limit must be >= 1 when provided")
     model_name, args.config, args.checkpoint = resolve_culane_model_args(
         args.model,
         args.config,
@@ -134,15 +115,22 @@ def main():
 
     data_root = Path(args.data_root)
     checkpoint = Path(args.checkpoint)
-    output_dir = resolve_output_dir(model_name, args.output_dir)
+    output_dir = resolve_eval_output_dir(
+        PROJECT_ROOT,
+        "clrnet_inference",
+        model_name,
+        args.output_dir,
+    )
     if not data_root.exists():
         raise FileNotFoundError(f"data root not found: {data_root}")
     if not checkpoint.exists():
         raise FileNotFoundError(f"checkpoint not found: {checkpoint}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset = build_culane_dataset(cfg, data_root)
-    total = len(dataset)
+    dataset = build_culane_dataset(build_dataset, cfg, data_root)
+    total = len(dataset) if args.limit is None else min(args.limit, len(dataset))
+    if total < 1:
+        raise RuntimeError("dataset is empty; cannot run CULane eval")
 
     device = resolve_device(args.device)
     model = build_net(cfg).to(device)
@@ -153,7 +141,8 @@ def main():
     print(f"config={config}")
     print(f"checkpoint={checkpoint}")
     print(f"dataset_class={dataset.__class__.__name__}")
-    print(f"dataset_total={total}")
+    print(f"dataset_total={len(dataset)}")
+    print(f"evaluated_samples={total}")
     print(f"eval_list={dataset.list_path}")
     print(f"model_name={model_name}")
     print(f"batch_size={args.batch_size}")

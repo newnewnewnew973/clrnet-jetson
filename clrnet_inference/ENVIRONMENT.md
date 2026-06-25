@@ -73,7 +73,7 @@ torchvision
 pycuda
 ```
 
-현재 추론/평가 경로에서는 `clrnet_inference_test/` 내부 shim으로 `mmcv`와
+현재 추론/평가 경로에서는 `clrnet_inference/` 내부 shim으로 `mmcv`와
 `torchvision` import를 처리합니다. 이 shim은 학습용이 아닙니다.
 
 ## Required Repository State
@@ -84,12 +84,12 @@ clone 직후 다음 구조를 맞춥니다.
 .
 ├── clrnet/                         # official CLRNet source
 ├── clrnet_common/                  # shared runtime, latency, and CUDA NMS extension
-├── clrnet_inference_test/           # this project
+├── clrnet_inference/           # this project
 ├── data/CULane/                     # CULane dataset
 └── weights/culane_dla34.pth         # DLA34 checkpoint
 ```
 
-`clrnet_common/`과 `clrnet_inference_test/`는 이 repository에 포함합니다.
+`clrnet_common/`과 `clrnet_inference/`는 이 repository에 포함합니다.
 `clrnet/`, `data/`, `weights/`는 git에 포함하지 않습니다.
 
 ## Setup
@@ -161,11 +161,11 @@ data/CULane/
   list/
 ```
 
-`clrnet_inference_test/data/CULane` symlink를 생성합니다.
+`clrnet_inference/data/CULane` symlink를 생성합니다.
 
 ```bash
-mkdir -p clrnet_inference_test/data
-ln -s ../../data/CULane clrnet_inference_test/data/CULane
+mkdir -p clrnet_inference/data
+ln -s ../../data/CULane clrnet_inference/data/CULane
 ```
 
 test split 개수 확인:
@@ -210,15 +210,15 @@ clrnet_common/extensions/nms/nms_impl*.so
 repository root에서 실행합니다.
 
 ```bash
-python clrnet_inference_test/tests/test_import_sources.py
-python clrnet_inference_test/tests/test_nms_import.py
-python clrnet_inference_test/tests/test_nms_compute.py
+python clrnet_inference/tests/test_import_sources.py
+python clrnet_inference/tests/test_nms_import.py
+python clrnet_inference/tests/test_nms_compute.py
 ```
 
 단일 이미지 추론:
 
 ```bash
-python clrnet_inference_test/scripts/inference_culane.py \
+python clrnet_inference/scripts/inference_culane.py \
   --image /path/to/culane/image.jpg \
   --model dla34 \
   --device cuda
@@ -227,29 +227,29 @@ python clrnet_inference_test/scripts/inference_culane.py \
 전체 prediction 생성:
 
 ```bash
-python clrnet_inference_test/scripts/evaluate_culane.py \
+python clrnet_inference/scripts/evaluate_culane.py \
   --model dla34 \
   --device cuda \
   --batch-size 8
 ```
 
 `--output-dir`을 생략하면 실행마다
-`clrnet_inference_test/outputs/eval/dla34_<YYYYmmdd_HHMMSS>` 경로를 생성합니다.
+`clrnet_inference/outputs/eval/dla34_<YYYYmmdd_HHMMSS>` 경로를 생성합니다.
 
 prediction 개수 확인:
 
 ```bash
-find clrnet_inference_test/outputs/eval/dla34_<YYYYmmdd_HHMMSS> -name '*.lines.txt' | wc -l
+find clrnet_inference/outputs/eval/dla34_<YYYYmmdd_HHMMSS> -name '*.lines.txt' | wc -l
 # 34680
 ```
 
 F1@0.5 계산:
 
 ```bash
-python clrnet_inference_test/scripts/measure_culane_metric.py \
+python clrnet_inference/scripts/measure_culane_metric.py \
   --model dla34 \
-  --pred-dir clrnet_inference_test/outputs/eval/dla34_<YYYYmmdd_HHMMSS> \
-  --data-root clrnet_inference_test/data/CULane \
+  --pred-dir clrnet_inference/outputs/eval/dla34_<YYYYmmdd_HHMMSS> \
+  --data-root clrnet_inference/data/CULane \
   --iou-threshold 0.5 \
   --workers 4 \
   --progress-interval 500
@@ -258,7 +258,7 @@ python clrnet_inference_test/scripts/measure_culane_metric.py \
 PyTorch latency/FPS 측정:
 
 ```bash
-python clrnet_inference_test/scripts/measure_pytorch_latency.py \
+python clrnet_inference/scripts/measure_pytorch_latency.py \
   --model dla34 \
   --device cuda \
   --limit 100 \

@@ -8,7 +8,7 @@ import torch
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-LOCAL_PROJECT_ROOT = PROJECT_ROOT / "clrnet_inference_test"
+INFERENCE_PROJECT_ROOT = PROJECT_ROOT / "clrnet_inference"
 OFFICIAL_CLRNET_ROOT = PROJECT_ROOT / "clrnet"
 
 # These buffers/weights are not required for inference in exported CULane
@@ -27,12 +27,13 @@ def ensure_numpy_bool_alias() -> None:
         np.bool = bool
 
 
-def configure_import_paths() -> None:
+def configure_import_paths(local_project_root: Path | None = None) -> None:
     """Make local proxy modules and the official CLRNet checkout importable."""
+    proxy_root = local_project_root or INFERENCE_PROJECT_ROOT
     if str(OFFICIAL_CLRNET_ROOT) not in sys.path:
         sys.path.insert(0, str(OFFICIAL_CLRNET_ROOT))
-    if str(LOCAL_PROJECT_ROOT) not in sys.path:
-        sys.path.insert(0, str(LOCAL_PROJECT_ROOT))
+    if str(proxy_root) not in sys.path:
+        sys.path.insert(0, str(proxy_root))
 
 
 def nms_build_message(include_arch: bool = True) -> str:

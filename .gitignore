@@ -7,15 +7,16 @@
 /.codex/
 /.agents/
 /.pytest_cache/
+/tmp_trt_profile/
 __pycache__/
 *.py[cod]
 
 # Large or machine-local runtime data.
 /data/*
 /weights/*
-/clrnet_inference_test/data/*
-/clrnet_inference_test/assets/images/*
-!/clrnet_inference_test/assets/images/.gitkeep
+/clrnet_inference/data/*
+/clrnet_inference/assets/images/*
+!/clrnet_inference/assets/images/.gitkeep
 
 # Model and TensorRT artifacts.
 *.pth
@@ -27,11 +28,16 @@ __pycache__/
 *.zip
 
 # Generated outputs. Keep the directory structure in the project, not results.
-/clrnet_inference_test/outputs/**
-!/clrnet_inference_test/outputs/
-!/clrnet_inference_test/outputs/**/
-!/clrnet_inference_test/outputs/.gitkeep
-!/clrnet_inference_test/outputs/**/.gitkeep
+/clrnet_inference/outputs/**
+!/clrnet_inference/outputs/
+!/clrnet_inference/outputs/**/
+!/clrnet_inference/outputs/.gitkeep
+!/clrnet_inference/outputs/**/.gitkeep
+/clrnet_tensorrt/outputs/**
+!/clrnet_tensorrt/outputs/
+!/clrnet_tensorrt/outputs/**/
+!/clrnet_tensorrt/outputs/.gitkeep
+!/clrnet_tensorrt/outputs/**/.gitkeep
 
 # Native extension build products.
 /clrnet_common/extensions/nms/build/

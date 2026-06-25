@@ -1,4 +1,5 @@
 import argparse
+import importlib
 import json
 import statistics
 import time
@@ -29,11 +30,11 @@ ensure_numpy_bool_alias()
 configure_import_paths()
 
 try:
-    import clrnet.datasets  # noqa: F401,E402 - registers official datasets/processes
-    import clrnet.models  # noqa: F401,E402 - registers official model modules
-    from clrnet.datasets.registry import build_dataset  # noqa: E402
-    from clrnet.models.registry import build_net  # noqa: E402
-    from clrnet.utils.config import Config  # noqa: E402
+    importlib.import_module("clrnet.datasets")
+    importlib.import_module("clrnet.models")
+    from clrnet.datasets.registry import build_dataset
+    from clrnet.models.registry import build_net
+    from clrnet.utils.config import Config
 except ImportError as exc:
     if "nms_impl" in str(exc):
         raise SystemExit(nms_build_message()) from exc
@@ -61,7 +62,7 @@ def parse_args():
     )
     parser.add_argument(
         "--data-root",
-        default=str(PROJECT_ROOT / "clrnet_inference_test/data/CULane"),
+        default=str(PROJECT_ROOT / "clrnet_inference/data/CULane"),
     )
     parser.add_argument(
         "--output-dir",
@@ -223,6 +224,8 @@ def write_report(path: Path, result: dict):
     wall = result["latency_ms"]["wall_clock_breakdown"]
     event = result["latency_ms"]["cuda_event"]
     model_post_wall = result["latency_ms"]["wall_clock_model_postprocess"]
+    pure = event["pure_model_forward"]
+    forward = event["forward"]
     lines = [
         f"# PyTorch CLRNet {result['model_name']} Latency Baseline",
         "",
@@ -235,26 +238,36 @@ def write_report(path: Path, result: dict):
         f"- Samples: `{result['samples']}`",
         f"- Warmup: `{result['warmup']}`",
         f"- Block warmup: `{result['block_warmup']}`",
-        f"- Continuous end-to-end FPS: `{result['fps_continuous_e2e']:.2f}`",
-        f"- Continuous end-to-end mean latency: `{result['latency_ms']['continuous_e2e']:.2f} ms`",
-        f"- Wall-clock breakdown total mean latency: `{wall['total']['mean']:.2f} ms`",
-        "- Dataset/preprocess wall-clock mean latency: "
-        f"`{wall['dataset_preprocess']['mean']:.2f} ms`",
-        f"- H2D copy wall-clock mean latency: `{wall['h2d_copy']['mean']:.2f} ms`",
-        f"- Forward wall-clock mean latency: `{wall['forward']['mean']:.2f} ms`",
-        f"- Postprocess wall-clock mean latency: `{wall['postprocess']['mean']:.2f} ms`",
-        f"- Model forward CUDA-event FPS: `{result['fps_cuda_event_forward']:.2f}`",
-        f"- Model forward CUDA-event mean latency: `{event['forward']['mean']:.2f} ms`",
-        f"- Model forward CUDA-event p95/p99/max: "
-        f"`{event['forward']['p95']:.2f} / "
-        f"{event['forward']['p99']:.2f} / "
-        f"{event['forward']['max']:.2f} ms`",
-        f"- Forward + postprocess CUDA-event FPS: "
-        f"`{result['fps_cuda_event_forward_postprocess']:.2f}`",
-        f"- Forward + postprocess CUDA-event mean latency: "
-        f"`{event['forward_postprocess']['mean']:.2f} ms`",
-        f"- Forward + postprocess wall-clock mean latency: "
-        f"`{model_post_wall['mean']:.2f} ms`",
+        "",
+        "### Pure PyTorch Model",
+        "",
+        "| Runtime | Input dtype | Pure model FPS | Pure model ms | Pure model p95/p99/max ms |",
+        "| --- | --- | ---: | ---: | ---: |",
+        "| PyTorch | "
+        f"`{result['environment']['input_dtype']}` | "
+        f"{result['fps_pure_model_cuda_event']:.2f} | "
+        f"{pure['mean']:.2f} | "
+        f"{pure['p95']:.2f}/{pure['p99']:.2f}/{pure['max']:.2f} |",
+        "",
+        "### Pipeline-Compatible Timing",
+        "",
+        "| Runtime | Runner forward ms | Runner forward p95/p99/max ms | Forward+post FPS | E2E FPS | E2E ms |",
+        "| --- | ---: | ---: | ---: | ---: | ---: |",
+        "| PyTorch | "
+        f"{forward['mean']:.2f} | "
+        f"{forward['p95']:.2f}/{forward['p99']:.2f}/{forward['max']:.2f} | "
+        f"{result['fps_cuda_event_forward_postprocess']:.2f} | "
+        f"{result['fps_continuous_e2e']:.2f} | "
+        f"{result['latency_ms']['continuous_e2e']:.2f} |",
+        "",
+        "## Wall-Clock Breakdown",
+        "",
+        f"- Total mean latency: `{wall['total']['mean']:.2f} ms`",
+        f"- Dataset/preprocess mean latency: `{wall['dataset_preprocess']['mean']:.2f} ms`",
+        f"- H2D copy mean latency: `{wall['h2d_copy']['mean']:.2f} ms`",
+        f"- Forward mean latency: `{wall['forward']['mean']:.2f} ms`",
+        f"- Postprocess mean latency: `{wall['postprocess']['mean']:.2f} ms`",
+        f"- Forward + postprocess wall-clock mean latency: `{model_post_wall['mean']:.2f} ms`",
         "",
         "## Korean Notes",
         "",
@@ -311,6 +324,7 @@ def write_outputs(output_dir: Path, model_name: str, result: dict) -> tuple[Path
 
 
 def print_summary(result: dict, json_path: Path, report_path: Path) -> None:
+    pure = result["latency_ms"]["cuda_event"]["pure_model_forward"]
     print(f"fps_continuous_e2e={result['fps_continuous_e2e']:.2f}")
     print(f"fps_continuous_forward={result['fps_continuous_forward']:.2f}")
     print(
@@ -318,6 +332,8 @@ def print_summary(result: dict, json_path: Path, report_path: Path) -> None:
         f"{result['fps_continuous_forward_postprocess']:.2f}"
     )
     print(f"fps_cuda_event_forward={result['fps_cuda_event_forward']:.2f}")
+    print(f"fps_pure_model_cuda_event={result['fps_pure_model_cuda_event']:.2f}")
+    print(f"latency_pure_model_cuda_event_mean_ms={pure['mean']:.2f}")
     print(
         "fps_cuda_event_forward_postprocess="
         f"{result['fps_cuda_event_forward_postprocess']:.2f}"
@@ -360,7 +376,7 @@ def main():
     )
     if args.output_dir is None:
         args.output_dir = str(
-            PROJECT_ROOT / f"clrnet_inference_test/outputs/latency/pytorch_{model_name}"
+            PROJECT_ROOT / f"clrnet_inference/outputs/latency/pytorch_{model_name}"
         )
     cfg = Config.fromfile(args.config)
     cfg.backbone.pretrained = False
@@ -449,6 +465,7 @@ def main():
             "cudnn": torch.backends.cudnn.version(),
             "cudnn_benchmark": torch.backends.cudnn.benchmark,
             "input_shape": list(event_tensor.shape),
+            "input_dtype": str(event_tensor.dtype),
         },
         "timing_method": {
             "wall_clock_breakdown": "wall_clock_with_per_stage_synchronize",
@@ -463,6 +480,9 @@ def main():
         "fps_cuda_event_forward": (
             1000.0 / statistics.fmean(model_metrics["forward_event"])
         ),
+        "fps_pure_model_cuda_event": (
+            1000.0 / statistics.fmean(model_metrics["forward_event"])
+        ),
         "fps_cuda_event_forward_postprocess": (
             1000.0 / statistics.fmean(model_metrics["forward_postprocess_event"])
         ),
@@ -475,6 +495,7 @@ def main():
                 "total": summarize_ms(wall_metrics["total"]),
             },
             "cuda_event": {
+                "pure_model_forward": summarize_ms(model_metrics["forward_event"]),
                 "forward": summarize_ms(model_metrics["forward_event"]),
                 "forward_postprocess": summarize_ms(
                     model_metrics["forward_postprocess_event"]

@@ -1,38 +1,27 @@
+"""CULane metric helpers shared by PyTorch and TensorRT prediction outputs."""
+
 import argparse
 import json
 import multiprocessing as mp
 import time
 from pathlib import Path
 
-from runtime import PROJECT_ROOT, configure_import_paths, ensure_numpy_bool_alias
+from clrnet.utils.culane_metric import culane_metric, load_culane_data
 
 
-ensure_numpy_bool_alias()
-configure_import_paths()
-
-from clrnet.utils.culane_metric import culane_metric, load_culane_data  # noqa: E402
-
-
-def parse_args():
+def build_parser(default_namespace: str, project_root: Path) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description=(
-            "Measure CULane F1 from generated CLRNet prediction files with "
-            "limited worker processes and progress logging."
-        )
+        description="Measure CULane F1 from generated CLRNet prediction files."
     )
     parser.add_argument(
         "--pred-dir",
         default=None,
         help="Directory containing generated CULane *.lines.txt prediction files.",
     )
-    parser.add_argument(
-        "--model",
-        default="dla34",
-        help="Name used for default prediction/result paths.",
-    )
+    parser.add_argument("--model", default="dla34")
     parser.add_argument(
         "--data-root",
-        default=str(PROJECT_ROOT / "clrnet_inference_test/data/CULane"),
+        default=str(project_root / "clrnet_inference/data/CULane"),
         help="CULane dataset root containing images, GT .lines.txt files, and list/.",
     )
     parser.add_argument(
@@ -40,15 +29,45 @@ def parse_args():
         default=None,
         help="CULane list file. Defaults to <data-root>/list/test.txt.",
     )
-    parser.add_argument(
-        "--output-json",
-        default=None,
-        help="JSON file for final and intermediate metric results.",
-    )
+    parser.add_argument("--output-json", default=None)
     parser.add_argument("--iou-threshold", type=float, default=0.5)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--progress-interval", type=int, default=500)
-    return parser.parse_args()
+    parser.set_defaults(default_namespace=default_namespace, project_root=project_root)
+    return parser
+
+
+def threshold_suffix(value: float) -> str:
+    return str(value).replace(".", "_")
+
+
+def resolve_default_paths(args: argparse.Namespace) -> None:
+    namespace = args.default_namespace
+    project_root = args.project_root
+    if args.pred_dir is None:
+        args.pred_dir = str(project_root / f"{namespace}/outputs/eval/{args.model}_official")
+    if args.output_json is None:
+        suffix = threshold_suffix(args.iou_threshold)
+        args.output_json = str(
+            project_root / f"{namespace}/outputs/eval/{args.model}_official_metric_{suffix}.json"
+        )
+
+
+def validate_args(args: argparse.Namespace) -> tuple[Path, Path, Path, Path]:
+    pred_dir = Path(args.pred_dir)
+    data_root = Path(args.data_root)
+    list_path = Path(args.list_path) if args.list_path else data_root / "list/test.txt"
+    output_json = Path(args.output_json)
+
+    if not pred_dir.exists():
+        raise FileNotFoundError(f"prediction directory not found: {pred_dir}")
+    if not data_root.exists():
+        raise FileNotFoundError(f"CULane data root not found: {data_root}")
+    if not list_path.exists():
+        raise FileNotFoundError(f"CULane list file not found: {list_path}")
+    if args.workers < 1:
+        raise ValueError("--workers must be >= 1")
+    return pred_dir, data_root, list_path, output_json
 
 
 def calc_one(job):
@@ -80,36 +99,9 @@ def make_payload(processed, total, tp, fp, fn, elapsed_sec):
     }
 
 
-def threshold_suffix(value: float) -> str:
-    return str(value).replace(".", "_")
-
-
-def main():
-    args = parse_args()
-    if args.pred_dir is None:
-        args.pred_dir = str(
-            PROJECT_ROOT / f"clrnet_inference_test/outputs/eval/{args.model}_official"
-        )
-    if args.output_json is None:
-        suffix = threshold_suffix(args.iou_threshold)
-        args.output_json = str(
-            PROJECT_ROOT
-            / f"clrnet_inference_test/outputs/eval/{args.model}_official_metric_{suffix}.json"
-        )
-    pred_dir = Path(args.pred_dir)
-    data_root = Path(args.data_root)
-    list_path = Path(args.list_path) if args.list_path else data_root / "list/test.txt"
-    output_json = Path(args.output_json)
-
-    if not pred_dir.exists():
-        raise FileNotFoundError(f"prediction directory not found: {pred_dir}")
-    if not data_root.exists():
-        raise FileNotFoundError(f"CULane data root not found: {data_root}")
-    if not list_path.exists():
-        raise FileNotFoundError(f"CULane list file not found: {list_path}")
-    if args.workers < 1:
-        raise ValueError("--workers must be >= 1")
-
+def measure(args: argparse.Namespace) -> Path:
+    resolve_default_paths(args)
+    pred_dir, data_root, list_path, output_json = validate_args(args)
     output_json.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"model={args.model}", flush=True)
@@ -149,7 +141,9 @@ def main():
                 print(json.dumps(payload), flush=True)
 
     print(f"metric_json={output_json}", flush=True)
+    return output_json
 
 
-if __name__ == "__main__":
-    main()
+def main(default_namespace: str, project_root: Path) -> None:
+    parser = build_parser(default_namespace, project_root)
+    measure(parser.parse_args())

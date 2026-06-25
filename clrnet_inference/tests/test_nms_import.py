@@ -6,13 +6,13 @@ from pathlib import Path
 
 
 WORKSPACE_DIR = Path(__file__).resolve().parents[2]
-LOCAL_PROJECT_DIR = WORKSPACE_DIR / "clrnet_inference_test"
+INFERENCE_PROJECT_DIR = WORKSPACE_DIR / "clrnet_inference"
 OFFICIAL_CLRNET_DIR = WORKSPACE_DIR / "clrnet"
 
 
 def main() -> int:
     sys.path.insert(0, str(OFFICIAL_CLRNET_DIR))
-    sys.path.insert(0, str(LOCAL_PROJECT_DIR))
+    sys.path.insert(0, str(INFERENCE_PROJECT_DIR))
 
     try:
         from clrnet.ops.nms import nms

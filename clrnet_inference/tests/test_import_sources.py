@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 WORKSPACE_DIR = Path(__file__).resolve().parents[2]
-LOCAL_PROJECT_DIR = WORKSPACE_DIR / "clrnet_inference_test"
+INFERENCE_PROJECT_DIR = WORKSPACE_DIR / "clrnet_inference"
 OFFICIAL_CLRNET_DIR = WORKSPACE_DIR / "clrnet"
 OFFICIAL_PACKAGE_DIR = OFFICIAL_CLRNET_DIR / "clrnet"
 
@@ -46,22 +46,22 @@ def main() -> int:
     # The proxy clrnet package then falls back to official CLRNet for modules
     # that are not overridden locally, e.g. clrnet.models and clrnet.datasets.
     sys.path.insert(0, str(OFFICIAL_CLRNET_DIR))
-    sys.path.insert(0, str(LOCAL_PROJECT_DIR))
+    sys.path.insert(0, str(INFERENCE_PROJECT_DIR))
 
     # Each entry is (module_name, expected_root). Import the module and assert
     # module.__file__ is under the intended source tree.
     checks = [
-        ("clrnet", LOCAL_PROJECT_DIR),
-        ("clrnet.ops", LOCAL_PROJECT_DIR),
-        ("clrnet.ops.nms", LOCAL_PROJECT_DIR),
+        ("clrnet", INFERENCE_PROJECT_DIR),
+        ("clrnet.ops", INFERENCE_PROJECT_DIR),
+        ("clrnet.ops.nms", INFERENCE_PROJECT_DIR),
         ("clrnet.models", OFFICIAL_PACKAGE_DIR),
         ("clrnet.datasets", OFFICIAL_PACKAGE_DIR),
         ("clrnet.utils.config", OFFICIAL_PACKAGE_DIR),
-        ("mmcv", LOCAL_PROJECT_DIR),
-        ("mmcv.cnn", LOCAL_PROJECT_DIR),
-        ("mmcv.parallel", LOCAL_PROJECT_DIR),
-        ("mmcv.runner", LOCAL_PROJECT_DIR),
-        ("torchvision", LOCAL_PROJECT_DIR),
+        ("mmcv", INFERENCE_PROJECT_DIR),
+        ("mmcv.cnn", INFERENCE_PROJECT_DIR),
+        ("mmcv.parallel", INFERENCE_PROJECT_DIR),
+        ("mmcv.runner", INFERENCE_PROJECT_DIR),
+        ("torchvision", INFERENCE_PROJECT_DIR),
     ]
 
     for module_name, expected_root in checks:

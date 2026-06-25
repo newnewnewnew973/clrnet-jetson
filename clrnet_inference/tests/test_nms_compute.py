@@ -8,7 +8,7 @@ import torch
 
 
 WORKSPACE_DIR = Path(__file__).resolve().parents[2]
-LOCAL_PROJECT_DIR = WORKSPACE_DIR / "clrnet_inference_test"
+INFERENCE_PROJECT_DIR = WORKSPACE_DIR / "clrnet_inference"
 OFFICIAL_CLRNET_DIR = WORKSPACE_DIR / "clrnet"
 PROP_SIZE = 77
 
@@ -45,7 +45,7 @@ def run_nms_case(nms, name: str, offsets, scores, overlap, top_k, expected_keep)
 
 def main() -> int:
     sys.path.insert(0, str(OFFICIAL_CLRNET_DIR))
-    sys.path.insert(0, str(LOCAL_PROJECT_DIR))
+    sys.path.insert(0, str(INFERENCE_PROJECT_DIR))
 
     if not torch.cuda.is_available():
         print("[FAIL] CUDA is not available")

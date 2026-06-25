@@ -12,11 +12,11 @@
 사용 방식:
 
 - 공식 CLRNet 소스 트리는 이 저장소에 포함하지 않습니다.
-- `clrnet_inference_test/clrnet`은 공식 `clrnet` 패키지를 수정하지 않고 import하기
+- `clrnet_inference/clrnet`은 공식 `clrnet` 패키지를 수정하지 않고 import하기
   위한 proxy/override 패키지입니다.
-- `clrnet_inference_test/extensions/nms`의 CUDA NMS 확장은 CLRNet의 NMS 구현을
+- `clrnet_common/extensions/nms`의 CUDA NMS 확장은 CLRNet의 NMS 구현을
   PyTorch 2.x / Jetson 환경에서 빌드되도록 맞춘 코드입니다.
-- `clrnet_inference_test/mmcv`와 `clrnet_inference_test/torchvision`은 학습용
+- `clrnet_inference/mmcv`와 `clrnet_inference/torchvision`은 학습용
   대체 구현이 아니라, 이 추론/평가 경로에서 필요한 최소 import shim입니다.
 
 ## Data and Weights
