@@ -75,10 +75,10 @@ samples.
 
 Latency summary:
 
-| Runtime | Samples | E2E FPS | Forward FPS |
+| Runtime | Samples | E2E FPS | Pure model FPS |
 | --- | ---: | ---: | ---: |
 | PyTorch DLA34 | 1,000 | 12.72 | 31.39 |
-| TensorRT DLA34 FP16 | 1,000 | 14.84 | 77.03 |
+| TensorRT DLA34 FP16 | 1,000 | 14.84 | 128.67 |
 
 Generated artifacts:
 

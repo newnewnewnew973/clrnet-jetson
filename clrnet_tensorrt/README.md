@@ -187,8 +187,11 @@ clrnet_tensorrt/outputs/latency/tensorrt_dla34_1000/TENSORRT_LATENCY.md
 ```
 
 Pure engine timing measures only TensorRT execution with preallocated buffers and
-CUDA events. Continuous E2E timing includes dataset access, preprocessing,
-host-to-device copy, TensorRT forward, and shared CLRNet lane decode/NMS.
+CUDA events. This is the closest number to pure model FPS. `fps_cuda_event_forward`
+uses the normal `TensorRTEngine.infer()` wrapper, so it includes runner overhead
+around TensorRT execution. Continuous E2E timing includes dataset access,
+preprocessing, host-to-device copy, TensorRT forward, and shared CLRNet lane
+decode/NMS.
 
 ## Comparison With PyTorch
 
@@ -200,14 +203,15 @@ The latest accuracy runs used the full CULane test split. Latency runs used
 | PyTorch DLA34 | 34,680 | 0.871190 | 0.747678 | 0.804722 |
 | TensorRT DLA34 FP16 | 34,680 | 0.871202 | 0.747631 | 0.804700 |
 
-| Runtime | Samples | E2E FPS | Forward FPS |
+| Runtime | Samples | E2E FPS | Pure model FPS |
 | --- | ---: | ---: | ---: |
 | PyTorch DLA34 | 1,000 | 12.72 | 31.39 |
-| TensorRT DLA34 FP16 | 1,000 | 14.84 | 77.03 |
+| TensorRT DLA34 FP16 | 1,000 | 14.84 | 128.67 |
 
 The FP16 TensorRT metric is effectively equal to the PyTorch baseline for this
-run. The larger forward FPS improvement is partially hidden in E2E FPS because
-preprocessing and lane decode/NMS are still shared Python-side work.
+run. The larger pure model FPS improvement is partially hidden in E2E FPS because
+preprocessing and lane decode/NMS are still shared Python-side work. The TensorRT
+runner-wrapper forward FPS from the same run was 77.03.
 
 ## Verification
 
