@@ -3,6 +3,18 @@
 DeepStream deployment workspace for running the CLRNet TensorRT model on Jetson
 Orin Nano Super.
 
+![CLRNet DeepStream lane overlay](assets/deepstream_lane_overlay.jpg)
+
+## Highlights
+
+- Deploys CLRNet on Jetson Orin Nano Super with DeepStream 7.1.
+- Runs the lane model through TensorRT FP16 and DeepStream `nvinfer`.
+- Uses Jetson hardware decode with `nvv4l2decoder`.
+- Draws lane overlays from raw CLRNet tensor output using Python `pyds`.
+- Restores the original full-frame output inside the DeepStream pipeline with
+  `tee` and `nvcompositor`.
+- Verifies the full `data/video_example.zip` sequence end to end.
+
 The target runtime path is GPU based:
 
 ```text
@@ -75,6 +87,35 @@ S_EXT_CTRLS for CUDA_GPU_ID failed
 ```
 
 Adding `kmod` to the image fixed the hardware decode path.
+
+## Performance Summary
+
+Measurements collected on this Jetson Orin Nano Super workspace:
+
+| Runtime | Measurement | Result |
+| --- | ---: | ---: |
+| PyTorch DLA34 | pure model CUDA-event FPS | 31.39 |
+| TensorRT FP16 DLA34 | pure engine CUDA-event FPS | 128.67 |
+| TensorRT FP16 DLA34 | runner forward FPS | 77.03 |
+| TensorRT FP16 DLA34 | continuous end-to-end FPS | 14.84 |
+| DeepStream DLA34 | full video frames verified | 5,400 |
+
+The DeepStream number above is an end-to-end functional verification count, not
+a formal latency benchmark. Use the TensorRT latency scripts when comparing pure
+model speed.
+
+## Scope And Next Steps
+
+This is a deployment demo project, not a production service yet. The current
+implementation covers file input, hardware decode, TensorRT inference, lane
+postprocess, overlay, and encoded output. To turn it into a field deployment,
+the next engineering steps are:
+
+- Add RTSP or USB camera source support.
+- Add long-running stability tests.
+- Add runtime FPS, memory, and temperature logging.
+- Package a `docker compose` or `systemd` launcher.
+- Add automatic restart and output rotation policies.
 
 ## Files
 
