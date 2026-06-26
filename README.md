@@ -1,6 +1,6 @@
 # CLRNet Jetson 배포 작업공간
 
-이 작업공간은 공식 CLRNet 구현을 직접 수정하지 않고, Jetson Orin Nano Super
+이 workspace는 공식 CLRNet 구현을 직접 수정하지 않고, Jetson Orin Nano Super
 환경에서 PyTorch baseline, TensorRT FP16 최적화, DeepStream 배포까지 검증하기
 위해 구성한 차선 인식 배포 프로젝트입니다.
 
@@ -8,49 +8,13 @@
 검증된 CLRNet을 실제 Jetson 배포 환경으로 가져와 정확도와 성능을 수치로
 확인하는 것입니다.
 
-## 프로젝트 요약
-
-한 문장으로 정리하면 다음과 같습니다.
-
-```text
-공식 CLRNet 코드는 원본 상태로 보존하고,
-PyTorch baseline 추론, TensorRT FP16 변환, DeepStream 배포 pipeline을
-분리된 패키지로 구성해 Jetson Orin Nano Super에서 검증한 프로젝트입니다.
-```
-
 이 프로젝트에서 확인한 범위는 다음과 같습니다.
 
-- CULane 전체 테스트 분할 34,680장 기준 PyTorch 정확도 평가
+- CULane 전체 테스트 34,680장 기준 PyTorch 정확도 평가
 - PyTorch baseline과 TensorRT FP16 결과의 정확도 비교
-- TensorRT engine의 pure model FPS 및 end-to-end FPS 측정
+- PyTorch와 TensorRT의 latency/FPS 비교
 - DeepStream 7.1 container에서 hardware decode, `nvinfer`, lane overlay,
   full-frame output video 생성 검증
-
-## 왜 CLRNet을 선택했는가
-
-CLRNet을 선택한 이유는 단순히 최신 SOTA 모델이기 때문이 아닙니다. 2026년
-기준으로 CLRerNet, DiffusionLane 같은 후속 연구들이 존재하므로 CLRNet을
-"현재 절대적인 최신 SOTA"라고 말하는 것은 조심해야 합니다.
-
-이 프로젝트에서 CLRNet을 선택한 이유는 다음과 같습니다.
-
-- CULane에서 검증된 높은 정확도를 가진 강한 공개 baseline입니다.
-- 공식 코드와 checkpoint가 공개되어 있어 재현 가능한 기준을 세우기 좋습니다.
-- PyTorch baseline, ONNX export, TensorRT FP16, DeepStream 배포까지 이어 붙이기
-  좋은 구조를 가지고 있습니다.
-- 이 프로젝트의 핵심 목표가 모델 연구가 아니라 Jetson 배포 검증이므로,
-  검증된 모델을 기준으로 삼는 것이 적합했습니다.
-
-면접에서는 다음과 같이 설명할 수 있습니다.
-
-```text
-CLRNet은 2026년 현재 절대적인 최신 SOTA라고 말하기는 어렵지만,
-CULane에서 검증된 강한 공개 baseline이고 공식 구현과 checkpoint가 있어
-재현 가능한 기준을 세우기 좋았습니다. 이 프로젝트의 목적은 새로운 모델을
-제안하는 것이 아니라, 검증된 차선 인식 모델을 Jetson Orin Nano Super에서
-PyTorch, TensorRT, DeepStream 배포 경로로 끝까지 구현하고 수치로 검증하는
-것이었기 때문에 CLRNet을 선택했습니다.
-```
 
 ## 전체 구조
 
@@ -68,9 +32,8 @@ PyTorch, TensorRT, DeepStream 배포 경로로 끝까지 구현하고 수치로 
 중요한 설계 의도는 두 가지입니다.
 
 첫째, 공식 CLRNet source인 `clrnet/`은 직접 수정하지 않습니다. upstream 코드를
-고치기 시작하면 원본과의 비교, 재현성 설명, 업데이트 추적이 어려워집니다.
-따라서 이 프로젝트는 필요한 호환 코드와 배포 코드를 작업공간 내부 패키지로
-분리했습니다.
+고치면 원본과의 비교, 재현성 설명, 업데이트 추적이 어려워집니다. 따라서 이
+프로젝트는 필요한 호환 코드와 배포 코드를 workspace 내부 패키지로 분리했습니다.
 
 둘째, PyTorch와 TensorRT가 공통으로 써야 하는 로직은 `clrnet_common/`에
 모았습니다. 전처리, lane decode, NMS, CULane metric이 서로 다르면 PyTorch와
@@ -110,7 +73,7 @@ TensorRT 변환 전 PyTorch baseline을 잡는 패키지입니다.
 - PyTorch latency 측정
 - proxy import 및 CUDA NMS test
 
-이 패키지의 목적은 "TensorRT로 빨라졌는가"를 말하기 전에, 먼저 PyTorch 기준
+이 패키지의 목적은 "TensorRT로 빨라졌는가"를 말하기 전에 먼저 PyTorch 기준
 정확도와 속도를 고정하는 것입니다.
 
 ### `clrnet_tensorrt/`
@@ -278,43 +241,4 @@ clrnet_tensorrt/outputs/eval/dla34_fp16_full_metric_0_5.json
 clrnet_tensorrt/outputs/latency/tensorrt_dla34_1000/
 clrnet_deepstream/outputs/video_example_full.h264
 clrnet_deepstream/outputs/deepstream_lanes_full_compositor.mp4
-```
-
-## 테스트
-
-```bash
-python -m compileall -q clrnet_common clrnet_inference clrnet_tensorrt clrnet_deepstream/scripts
-python -m pytest clrnet_inference/tests
-```
-
-최신 결과:
-
-```text
-compileall passed
-8 passed in clrnet_inference/tests
-```
-
-전체 package directory를 대상으로 `pytest`를 실행하는 것은 권장하지 않습니다.
-runtime package import collection 과정에서 불필요하게 오래 걸리거나 멈출 수
-있습니다. 현재 regression test는 `clrnet_inference/tests`를 대상으로 실행합니다.
-
-## 포트폴리오에서 강조할 점
-
-- 공식 CLRNet source를 직접 수정하지 않고 workspace-local package로 확장했습니다.
-- PyTorch baseline을 먼저 고정한 뒤 TensorRT FP16 결과와 같은 metric 기준으로
-  비교했습니다.
-- TensorRT FP16 변환 후 CULane F1 차이를 약 `0.000022` 수준으로 유지했습니다.
-- pure model 기준 TensorRT FPS가 PyTorch 대비 크게 향상되는 것을 확인했습니다.
-- DeepStream에서 hardware decode, `nvinfer`, lane postprocess, OSD overlay,
-  compositor 기반 full-frame output까지 end-to-end로 검증했습니다.
-- 단순히 모델을 실행한 것이 아니라 Jetson 배포 pipeline까지 수치와 산출물로
-  확인했습니다.
-
-면접에서 이 프로젝트를 설명할 때의 핵심 문장은 다음과 같습니다.
-
-```text
-이 프로젝트는 CLRNet 모델 자체를 새로 제안한 것이 아니라,
-검증된 lane detection 모델을 Jetson Orin Nano Super 환경에서
-PyTorch 기준선, TensorRT FP16 최적화, DeepStream 배포까지 연결하고,
-정확도와 성능을 CULane full test 및 실제 video pipeline으로 검증한 프로젝트입니다.
 ```
